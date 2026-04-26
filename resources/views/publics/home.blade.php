@@ -280,24 +280,24 @@
 </section>
 
 {{-- BANDE INFO --}}
-<div class="info-band">
-    <div class="info-band-inner">
+<div class="info-band" style="background-color: #333333b0;">
+    <div class="info-band-inner" >
         <div class="info-item">
-            <span class="info-icon">📅</span>
+           <img src="{{ asset('storage/icons/calendar.png') }}" alt="Calendrier"  style="max-width: 30px;">
             <div class="info-text">
                 <div class="lbl">Date</div>
                 <div class="val">{{ \Carbon\Carbon::parse($eventDate)->locale('fr')->isoFormat('D MMMM YYYY') }}</div>
             </div>
         </div>
         <div class="info-item">
-            <span class="info-icon">📍</span>
+            <span class="info-icon"> <img src="{{ asset('storage/icons/location.png') }}" alt="Calendrier"  style="max-width: 30px;"></span>
             <div class="info-text">
                 <div class="lbl">Lieu</div>
                 <div class="val">{{ $eventLocation }}</div>
             </div>
         </div>
         <div class="info-item">
-            <span class="info-icon">♛</span>
+            <span class="info-icon"><img src="{{ asset('storage/icons/queen.png') }}" alt="Calendrier"  style="max-width: 30px;"></span>
             <div class="info-text">
                 <div class="lbl">Candidates</div>
                 <div class="val">{{ $candidatesCount }} participantes</div>
@@ -341,7 +341,7 @@
 
     <div class="about-grid">
         <div class="about-card">
-            <span class="about-icon">👑</span>
+            <span class="about-icon"><img src="{{ asset('storage/icons/queen.png') }}" alt="Calendrier"  style="max-width: 50px;"></span>
             <h3>Miss Populaire</h3>
             <p>Le titre est décerné à la candidate ayant reçu le plus de votes du public. Chaque voix compte !</p>
         </div>
@@ -351,7 +351,7 @@
             <p>L'Association des Guinéens au Bénin, fière de célébrer la Tabaski avec culture, style et solidarité.</p>
         </div>
         <div class="about-card">
-            <span class="about-icon">✨</span>
+            <span class="about-icon"><img src="{{ asset('storage/icons/festivity.png') }}" alt="Calendrier"  style="max-width: 50px;"></span>
             <h3>Grand Gala</h3>
             <p>Une soirée inoubliable mêlant beauté, tradition et modernité. La 3ème édition promet d'être grandiose.</p>
         </div>
@@ -376,7 +376,7 @@
     @if($votingOpen)
     <div style="text-align:center;">
         <a href="{{ route('candidates') }}" class="btn-hero" style="animation:none;opacity:1;display:inline-flex;">
-            <span>👑</span><span>Voir les Candidates</span>
+            <span><img src="{{ asset('storage/icons/queen.png') }}" alt="Calendrier"  style="max-width: 50px;"></span><span>Voir les Candidates</span>
         </a>
     </div>
     @endif

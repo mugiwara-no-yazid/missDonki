@@ -25,6 +25,7 @@ class PublicController extends Controller
     public function candidates()
     {
 
+       
         return view('publics.candidates', [
             'candidates'  => Candidate::where('is_active', true)->orderBy('number')->get(),
             'votingOpen'  => Setting::isVotingOpen(), 
