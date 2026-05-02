@@ -346,7 +346,7 @@
             <p>Le titre est décerné à la candidate ayant reçu le plus de votes du public. Chaque voix compte !</p>
         </div>
         <div class="about-card">
-            <span class="about-icon">🌍</span>
+            <span class="about-icon"><img src="{{ asset('storage/icons/collaboration.png') }}" alt="Calendrier"  style="max-width: 50px;"></span>
             <h3>Organisé par</h3>
             <p>L'Association des Guinéens au Bénin, fière de célébrer la Tabaski avec culture, style et solidarité.</p>
         </div>

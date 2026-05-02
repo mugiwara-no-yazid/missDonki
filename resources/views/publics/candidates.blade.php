@@ -330,20 +330,7 @@
             @endforeach
         </div>
 
-        <div class="phone-section">
-            <span class="phone-label">Opérateur Mobile Money</span>
-            <div class="operator-btns">
-                <button class="op-btn selected" data-op="mtn" onclick="selectOp(this)">
-                    <span class="op-icon">🟡</span> MTN MoMo
-                </button>
-                <button class="op-btn" data-op="moov" onclick="selectOp(this)">
-                    <span class="op-icon">🔵</span> Moov Money
-                </button>
-            </div>
-            <span class="phone-label">Numéro Mobile Money</span>
-            <input type="tel" class="phone-input" id="phone-input"
-                   placeholder="Ex: 97000000" maxlength="15" inputmode="numeric">
-        </div>
+        {{-- Section téléphone retirée ici car Kkiapay affiche son propre champ dans le widget --}}
 
         <div class="order-recap" id="order-recap">
             <div class="recap-row"><span>Candidate</span><span id="recap-candidate">—</span></div>
@@ -357,12 +344,12 @@
 
         <button class="btn-pay" id="btn-pay" onclick="processPayment()">
             <span class="spinner" id="spinner"></span>
-            <span id="btn-text">🔒 Payer & Voter — <span id="pay-amount">500 FCFA</span></span>
+            <span id="btn-text">🔒 Voter — <span id="pay-amount">500 FCFA</span></span>
         </button>
 
         <p class="modal-note">
-            Paiement sécurisé via FeeXPay · Vote validé après confirmation<br>
-            Vous recevrez une demande de paiement sur votre téléphone
+            Paiement sécurisé via <strong>Kkiapay</strong><br>
+            Le vote sera comptabilisé une fois le paiement confirmé.
         </p>
     </div>
 </div>
@@ -380,7 +367,11 @@
 @endsection
 
 @push('scripts')
+<!-- SDK Kkiapay -->
+<script src="https://cdn.kkiapay.me/k.js"></script>
+
 <script>
+let lastPaymentId = null;
 const PACKS  = @json($packs->values());
 const CSRF   = document.querySelector('meta[name="csrf-token"]').content;
 
@@ -390,95 +381,122 @@ let selectedPackId        = null;
 let selectedPackPrice     = 0;
 let selectedPackVotes     = 0;
 let selectedPackName      = '';
-let selectedOp            = 'mtn';
 
-// Init : sélectionner le pack du milieu par défaut
-window.addEventListener('DOMContentLoaded', () => {
-    const defaultPack = document.querySelector('.packs-grid .pack.selected');
-    if (defaultPack) refreshPackState(defaultPack);
-});
+// --- FONCTIONS DE GESTION DU MODAL ---
 
 function openVote(id, name, photo) {
-    selectedCandidateId   = id;
+    selectedCandidateId = id;
     selectedCandidateName = name;
-    document.getElementById('modal-candidate-name').textContent = name;
-    document.getElementById('recap-candidate').textContent = name;
-    updateRecap();
+    
+    document.getElementById('modal-candidate-name').innerText = name;
+    document.getElementById('recap-candidate').innerText = name;
     document.getElementById('payment-modal').classList.add('active');
-    document.body.style.overflow = 'hidden';
+
+    // Sélectionner le pack par défaut (le 2ème / Populaire)
+    const defaultPack = document.querySelector('.pack.selected') || document.querySelector('.pack');
+    if (defaultPack) selectPack(defaultPack);
 }
+
 function closeModal() {
     document.getElementById('payment-modal').classList.remove('active');
-    document.body.style.overflow = '';
 }
-document.getElementById('payment-modal').addEventListener('click', function(e) {
-    if (e.target === this) closeModal();
-});
 
-function selectPack(el) {
-    document.querySelectorAll('.packs-grid .pack').forEach(p => p.classList.remove('selected'));
-    el.classList.add('selected');
-    refreshPackState(el);
-}
-function refreshPackState(el) {
-    selectedPackId    = el.dataset.packId;
-    selectedPackPrice = parseInt(el.dataset.price);
-    selectedPackVotes = parseInt(el.dataset.votes);
-    selectedPackName  = el.dataset.packName;
-    document.getElementById('pay-amount').textContent = selectedPackPrice.toLocaleString('fr-FR') + ' FCFA';
+function selectPack(element) {
+    // UI : Switcher la classe selected
+    document.querySelectorAll('.pack').forEach(p => p.classList.remove('selected'));
+    element.classList.add('selected');
+
+    // Data : Récupérer les infos du pack
+    selectedPackId    = element.dataset.packId;
+    selectedPackPrice = parseInt(element.dataset.price);
+    selectedPackVotes = element.dataset.votes;
+    selectedPackName  = element.dataset.packName;
+
     updateRecap();
 }
-function selectOp(el) {
-    document.querySelectorAll('.op-btn').forEach(b => b.classList.remove('selected'));
-    el.classList.add('selected');
-    selectedOp = el.dataset.op;
-}
+
 function updateRecap() {
-    document.getElementById('recap-pack').textContent   = selectedPackName || '—';
-    document.getElementById('recap-votes').textContent  = selectedPackVotes ? selectedPackVotes + ' vote(s)' : '—';
-    document.getElementById('recap-amount').textContent = selectedPackPrice ? selectedPackPrice.toLocaleString('fr-FR') + ' FCFA' : '—';
+    document.getElementById('recap-pack').innerText = selectedPackName;
+    document.getElementById('recap-votes').innerText = selectedPackVotes + (selectedPackVotes > 1 ? ' votes' : ' vote');
+    
+    const formattedPrice = new Intl.NumberFormat('fr-FR').format(selectedPackPrice) + ' FCFA';
+    document.getElementById('recap-amount').innerText = formattedPrice;
+    document.getElementById('pay-amount').innerText = formattedPrice;
 }
 
 async function processPayment() {
-    const phone = document.getElementById('phone-input').value.trim();
-    if (!phone || phone.length < 8) {
-        document.getElementById('phone-input').style.borderColor = 'var(--rouge)';
-        document.getElementById('phone-input').focus();
-        return;
-    }
-    document.getElementById('phone-input').style.borderColor = '';
+    if (!selectedCandidateId || !selectedPackId) return;
 
     const btn = document.getElementById('btn-pay');
     btn.disabled = true;
     btn.classList.add('loading');
 
     try {
-        const res = await fetch('{{ route('vote.process') }}', {
+        const res = await fetch("{{ route('vote.process') }}", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF },
             body: JSON.stringify({
                 candidate_id: selectedCandidateId,
                 pack_id:      selectedPackId,
-                phone_number: phone,
-                operator:     selectedOp,
             }),
         });
+        
         const data = await res.json();
-
-        closeModal();
-        btn.disabled = false;
-        btn.classList.remove('loading');
-        console.log(data)
         if (data.success) {
-            showSuccess(selectedCandidateName, selectedPackVotes);
-            spawnConfetti();
+            lastPaymentId = data.transaction_id;
+            openKkiapayWidget({
+                amount: data.amount,
+                position: "center",
+                theme: "#C9A84C",
+                key: "{{ config('services.kkiapay.public_key') }}",
+                sandbox: true,
+            });
+
+            closeModal();
+
+            addKkiapayListener('success', async (response) => {
+                
+    closeModal(); // Ferme le modal de sélection de pack
+    
+    //try {
+        const confirmReq = await fetch('{{ route('vote.confirm') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF
+            },
+            body: JSON.stringify({
+                kkiapay_id: response.transactionId, // L'ID venant de Kkiapay
+                local_id: lastPaymentId             // L'ID de ta table 'payments'
+            })
+        });
+
+        const result = await confirmReq.json();
+        console.log(result)
+        if (result.success) {
+            // Affichage du message de succès avec les données fraîches du serveur
+            showSuccess(result.candidate_name, result.votes_added);
+            
+            // Rafraîchir pour voir le nouveau score sur la page
+            setTimeout(() => window.location.reload(), 4000);
         } else {
-            alert('❌ ' + (data.message || 'Erreur lors du paiement. Veuillez réessayer.'));
+            alert("Erreur: " + result.message);
         }
-    } catch (e) {
+    /*} catch (error) {
+        console.error("Erreur confirmation:", error);
+        alert("Le paiement a réussi mais la validation serveur a échoué. Contactez le support.");
+    }*/
+});
+
+        } else {
+            alert('❌ ' + (data.message || 'Erreur lors de l\'initialisation.'));
+        }
+   } catch (e) {
+        console.error(e);
+        alert('❌ Erreur réseau. Veuillez réessayer.');
+    } finally {
         btn.disabled = false;
         btn.classList.remove('loading');
-        alert('❌ Erreur réseau. Veuillez réessayer.');
     }
 }
 
@@ -488,13 +506,9 @@ function showSuccess(name, votes) {
          <strong>${votes} vote${votes > 1 ? 's' : ''}</strong> seront ajoutés après confirmation du paiement.`;
     document.getElementById('success-overlay').classList.add('active');
 }
+
 function closeSuccess() {
     document.getElementById('success-overlay').classList.remove('active');
 }
-
-updateWhatsApp(
-    '{{ $candidates->sortByDesc('total_votes')->first()?->name ?? '—' }}',
-    {{ $candidates->sortByDesc('total_votes')->first()?->total_votes ?? 0 }}
-);
 </script>
 @endpush

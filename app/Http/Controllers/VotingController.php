@@ -7,18 +7,73 @@ use App\Models\Payment;
 use App\Models\Setting;
 use App\Models\Vote;
 use App\Models\VotePack;
-use App\Services\FeeXPayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+// Import du SDK Kkiapay
+use Kkiapay\Kkiapay;
 
 class VotingController extends Controller
 {
-    public function __construct(private FeeXPayService $feexpay) {}
+    private $kkiapay;
 
-    // ── Pages publiques ──────────────────────────────────────────────────────
+    public function __construct() 
+    {
+        // Initialisation avec tes identifiants (à mettre dans config/services.php)
+        $this->kkiapay = new Kkiapay(
+            config('services.kkiapay.public_key'),
+            config('services.kkiapay.private_key'),
+            config('services.kkiapay.secret'),
+            ['sandbox' => config('services.kkiapay.sandbox', true)]
+        );
+    }
+
+    public function confirmVote(Request $request)
+{
+    
+    $request->validate([
+        'kkiapay_id' => 'required', // ID de transaction Kkiapay
+        'local_id'   => 'required|exists:payments,transaction_ref',
+    ]);
+ 
+    // On utilise une transaction DB pour être sûr que tout passe ou rien ne passe
+    return DB::transaction(function () use ($request) {
+        
+        $payment = Payment::lockForUpdate()->where('transaction_ref',$request->local_id)->firstOrFail();
+
+        // Sécurité : Si le paiement est déjà traité, on ne fait rien
+        if ($payment->status !== 'pending') {
+            return response()->json(['success' => false, 'message' => 'Paiement déjà traité']);
+        }
+
+        // 1. Mise à jour du paiement
+        $payment->update([
+            'status' => 'success',
+            'transaction_ref' => $request->kkiapay_id,
+            'paid_at' => now(),
+            // Optionnel: on pourrait récupérer le numéro du client via l'API Kkiapay ici
+        ]);
+
+        // 2. Création de l'enregistrement de vote
+        Vote::create([
+            'candidate_id' => $payment->candidate_id,
+            'payment_id'   => $payment->id,
+            'votes_count'  => $payment->votes_count,
+        ]);
+
+        // 3. Mise à jour du total dénormalisé sur le candidat
+        $candidate = Candidate::find($payment->candidate_id);
+        $candidate->increment('total_votes', $payment->votes_count);
+
+        return response()->json([
+            'success' => true,
+            'candidate_name' => $candidate->name,
+            'votes_added' => $payment->votes_count
+        ]);
+    });
+}
 
     public function showCandidates()
     {
@@ -30,38 +85,29 @@ class VotingController extends Controller
         ]);
     }
 
-    // ── Traitement du vote (AJAX JSON) ───────────────────────────────────────
-
     public function process(Request $request): JsonResponse
     {
         if (!Setting::isVotingOpen()) {
             return response()->json(['success' => false, 'message' => 'Les votes sont actuellement fermés.'], 403);
         }
-
         $data = $request->validate([
             'candidate_id' => 'required|exists:candidates,id',
             'pack_id'      => 'required|exists:vote_packs,id',
-            'phone_number' => ['required', 'string', 'regex:/^[0-10]{8,15}$/'],
-            'operator'     => 'required|in:mtn,moov',
+            
         ]);
-        return response()->json([
-                'success'        => true,
-                'transaction_id' => $data,
-                'message'        => 'Demande de paiement envoyée. Validez sur votre téléphone.',
-            ]);
+
         $candidate = Candidate::findOrFail($data['candidate_id']);
         $pack      = VotePack::findOrFail($data['pack_id']);
 
         if (!$candidate->is_active || !$pack->is_active) {
-            return response()->json(['success' => false, 'message' => 'Candidate ou pack indisponible.'], 422);
+            return response()->json(['success' => false, 'message' => 'Candidat ou pack indisponible.'], 422);
         }
 
-        // Créer le paiement en attente
+        // 1. Créer le paiement local en attente
         $payment = Payment::create([
             'candidate_id' => $candidate->id,
             'pack_id'      => $pack->id,
-            'phone_number' => $data['phone_number'],
-            'operator'     => $data['operator'],
+            'phone_number' => "0153258179",
             'amount'       => $pack->price_fcfa,
             'votes_count'  => $pack->votes_count,
             'status'       => 'pending',
@@ -69,102 +115,87 @@ class VotingController extends Controller
             'user_agent'   => $request->userAgent(),
         ]);
 
-        // Appel FeeXPay
-        $result = $this->feexpay->requestToPay($payment);
+        // 2. Préparer la transaction Kkiapay
+        try {
+            // Note: On utilise l'ID de notre paiement comme référence Kkiapay
+            $transaction_id = 'VOTE_' . $payment->id . '_' . time();
+            $payment->update(['transaction_ref' => $transaction_id]);
 
-        if ($result['success']) {
-            $payment->update(['transaction_ref' => $result['transaction_id']]);
+            // Si tu utilises le Widget (Frontend), tu renvoies juste l'ID à ton JS.
+            // Si tu veux faire une redirection serveur (API), utilise :
+            /*
+            $response = $this->kkiapay->setupCheckout([
+                "amount" => $payment->amount,
+                "transaction_id" => $transaction_id,
+                "callback" => route('voting.webhook'),
+                "phoneNumber" => $payment->phone_number
+            ]);
+            */
 
             return response()->json([
                 'success'        => true,
-                'transaction_id' => $result['transaction_id'],
-                'message'        => 'Demande de paiement envoyée. Validez sur votre téléphone.',
+                'transaction_id' => $transaction_id,
+                'amount'         => $payment->amount,
+                'message'        => 'Initialisation du paiement...',
             ]);
+
+        } catch (\Exception $e) {
+            Log::error('Kkiapay Init Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Erreur technique Kkiapay.'], 500);
         }
-
-        // Échec immédiat
-        $payment->update(['status' => 'failed', 'failure_reason' => $result['message']]);
-
-        return response()->json([
-            'success' => false,
-            'message' => $result['message'],
-        ], 422);
     }
 
-    // ── Webhook FeeXPay ──────────────────────────────────────────────────────
+    // ── Webhook Kkiapay (Appelé par Kkiapay après le paiement) ────────────────
 
     public function webhook(Request $request): JsonResponse
     {
-        Log::info('FeeXPay webhook', $request->all());
+        // Kkiapay envoie les infos de transaction
+        $transactionId = $request->input('transactionId');
 
-        // Vérifier la signature FeeXPay
-        if (!$this->feexpay->verifyWebhook($request)) {
-            Log::warning('FeeXPay webhook signature invalide', $request->all());
-            return response()->json(['error' => 'Signature invalide'], 401);
-        }
+        try {
+            // VÉRIFICATION CRITIQUE : On demande à Kkiapay le vrai statut de cette transaction
+            $kkiapayTransaction = $this->kkiapay->verifyTransaction($transactionId);
 
-        $transactionId = $request->input('id')
-                      ?? $request->input('transaction_id')
-                      ?? $request->input('reference');
+            if ($kkiapayTransaction->status === 'SUCCESS') {
+                
+                // On retrouve notre paiement par la référence
+                $payment = Payment::where('transaction_ref', $kkiapayTransaction->transactionId)
+                                  ->where('status', 'pending')
+                                  ->first();
 
-        $status = $request->input('status');
+                if ($payment) {
+                    DB::transaction(function () use ($payment) {
+                        $payment->update([
+                            'status'  => 'success',
+                            'paid_at' => now(),
+                        ]);
 
-        if (!$transactionId) {
-            return response()->json(['error' => 'Reference manquante'], 400);
-        }
+                        Vote::create([
+                            'candidate_id' => $payment->candidate_id,
+                            'payment_id'   => $payment->id,
+                            'votes_count'  => $payment->votes_count,
+                        ]);
 
-        $payment = Payment::where('transaction_ref', $transactionId)
-                          ->where('status', 'pending')
-                          ->first();
-
-        if (!$payment) {
-            // Déjà traité ou inconnu
-            return response()->json(['ok' => true]);
-        }
-
-        DB::transaction(function () use ($payment, $status) {
-            $isSuccess = $this->feexpay->isSuccessStatus($status);
-
-            if ($isSuccess) {
-                $payment->update([
-                    'status'  => 'success',
-                    'paid_at' => now(),
-                ]);
-
-                // Créer le vote
-                Vote::create([
-                    'candidate_id' => $payment->candidate_id,
-                    'payment_id'   => $payment->id,
-                    'votes_count'  => $payment->votes_count,
-                ]);
-
-                // Incrémenter compteur dénormalisé
-                $payment->candidate->incrementVotes($payment->votes_count);
-
-            } else {
-                $payment->update([
-                    'status'         => 'failed',
-                    'failure_reason' => "FeeXPay status: {$status}",
-                ]);
+                        $payment->candidate->incrementVotes($payment->votes_count);
+                    });
+                }
+                return response()->json(['status' => 'success']);
             }
-        });
+        } catch (\Exception $e) {
+            Log::error('Webhook Error: ' . $e->getMessage());
+        }
 
-        return response()->json(['ok' => true]);
+        return response()->json(['status' => 'failed'], 400);
     }
-
-    // ── Vérification du statut d'un paiement (polling optionnel) ─────────────
 
     public function checkStatus(string $transactionId): JsonResponse
     {
-        $payment = Payment::where('transaction_ref', $transactionId)
-                          ->with('candidate')
-                          ->firstOrFail();
+        $payment = Payment::where('transaction_ref', $transactionId)->firstOrFail();
 
         return response()->json([
-            'status'       => $payment->status,
-            'votes_count'  => $payment->votes_count,
-            'candidate'    => $payment->candidate->name,
-            'paid_at'      => $payment->paid_at,
+            'status'      => $payment->status,
+            'votes_count' => $payment->votes_count,
+            'candidate'   => $payment->candidate->name,
         ]);
     }
 }

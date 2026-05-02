@@ -17,13 +17,11 @@ Route::get('/candidates', [VotingController::class, 'showCandidates'])->name('ca
 Route::get('/resultats',  [PublicController::class, 'results'])->name('results');
 // ── Vote AJAX ────────────────────────────────────────────────────────────────
 Route::post('/voter', [VotingController::class, 'process'])->name('vote.process');
-
+Route::post('/vote/confirm', [VotingController::class, 'confirmVote'])->name('vote.confirm');
 // ── Statut de paiement (polling optionnel) ───────────────────────────────────
 Route::get('/vote/status/{transactionId}', [VotingController::class, 'checkStatus'])->name('vote.status');
 
-// ── Webhook FeeXPay ──────────────────────────────────────────────────────────
-// ⚠️ À exclure du CSRF dans bootstrap/app.php
-Route::post('/webhook/feexpay', [VotingController::class, 'webhook'])->name('webhook.feexpay');
+
 Route::get('/login',         [AuthController::class, 'showLogin'])->name('login');
 
 Route::prefix('admin')->name('admin.')->group(function () {
