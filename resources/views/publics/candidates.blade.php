@@ -290,8 +290,9 @@
                 </div>
                 @endif
                 @if($votingOpen)
-                <button class="btn-vote" onclick="event.stopPropagation(); openVote({{ $c->id }}, '{{ addslashes($c->name) }}', '{{ $c->photo_url }}')">
-                    👑 Voter pour {{ explode(' ', $c->name)[0] }}
+                <button class="btn-vote" onclick="event.stopPropagation(); openVote({{ $c->id }}, '{{ addslashes($c->name) }}', '{{ $c->photo_url }}')" 
+                style="display: flex; justify-content:center">
+                   <span><img src="{{ asset('storage/icons/queen.png') }}" alt="queen"  style="max-width: 40px;"></span> <span>Voter pour {{ explode(' ', $c->name)[0] }}</span>
                 </button>
                 @else
                 <div class="btn-vote btn-vote-disabled">Vote fermé</div>
@@ -309,7 +310,7 @@
         <button class="modal-close" onclick="closeModal()">×</button>
 
         <div class="modal-header">
-            <span class="modal-crown">👑</span>
+<span><img src="{{ asset('storage/icons/queen.png') }}" alt="Calendrier"  style="max-width: 50px;"></span>
             <h2 class="modal-title">Voter pour</h2>
             <p class="modal-candidate" id="modal-candidate-name">—</p>
         </div>
