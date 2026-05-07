@@ -19,7 +19,7 @@ class VotingController extends Controller
 {
     private $kkiapay;
 
-    public function __construct() 
+    public function __construct()
     {
         // Initialisation avec tes identifiants (à mettre dans config/services.php)
         $this->kkiapay = new Kkiapay(
@@ -31,49 +31,48 @@ class VotingController extends Controller
     }
 
     public function confirmVote(Request $request)
-{
-    
-    $request->validate([
-        'kkiapay_id' => 'required', // ID de transaction Kkiapay
-        'local_id'   => 'required|exists:payments,transaction_ref',
-    ]);
- 
-    // On utilise une transaction DB pour être sûr que tout passe ou rien ne passe
-    return DB::transaction(function () use ($request) {
-        
-        $payment = Payment::lockForUpdate()->where('transaction_ref',$request->local_id)->firstOrFail();
+    {
 
-        // Sécurité : Si le paiement est déjà traité, on ne fait rien
-        if ($payment->status !== 'pending') {
-            return response()->json(['success' => false, 'message' => 'Paiement déjà traité']);
-        }
-
-        // 1. Mise à jour du paiement
-        $payment->update([
-            'status' => 'success',
-            'transaction_ref' => $request->kkiapay_id,
-            'paid_at' => now(),
-            // Optionnel: on pourrait récupérer le numéro du client via l'API Kkiapay ici
+        $request->validate([
+            'kkiapay_id' => 'required', // ID de transaction Kkiapay
+            'local_id'   => 'required|exists:payments,transaction_ref',
         ]);
 
-        // 2. Création de l'enregistrement de vote
-        Vote::create([
-            'candidate_id' => $payment->candidate_id,
-            'payment_id'   => $payment->id,
-            'votes_count'  => $payment->votes_count,
-        ]);
+        // On utilise une transaction DB pour être sûr que tout passe ou rien ne passe
+        return DB::transaction(function () use ($request) {
 
-        // 3. Mise à jour du total dénormalisé sur le candidat
-        $candidate = Candidate::find($payment->candidate_id);
-        $candidate->increment('total_votes', $payment->votes_count);
+            $payment = Payment::lockForUpdate()->where('transaction_ref', $request->local_id)->firstOrFail();
 
-        return response()->json([
-            'success' => true,
-            'candidate_name' => $candidate->name,
-            'votes_added' => $payment->votes_count
-        ]);
-    });
-}
+            // Sécurité : Si le paiement est déjà traité, on ne fait rien
+            if ($payment->status !== 'pending') {
+                return response()->json(['success' => false, 'message' => 'Paiement déjà traité']);
+            }
+
+            // 1. Mise à jour du paiement
+            $payment->update([
+                'status' => 'success',
+                'transaction_ref' => $request->kkiapay_id,
+                'paid_at' => now(),
+                // Optionnel: on pourrait récupérer le numéro du client via l'API Kkiapay ici
+            ]);
+
+            // 2. Création de l'enregistrement de vote
+            Vote::create([
+                'candidate_id' => $payment->candidate_id,
+                'payment_id'   => $payment->id,
+                'votes_count'  => $payment->votes_count,
+            ]);
+
+            // 3. Mise à jour du total dénormalisé sur le candidat
+            $payment->candidate->incrementVotes($payment->votes_count);
+
+            return response()->json([
+                'success' => true,
+                'candidate_name' => $candidate->name,
+                'votes_added' => $payment->votes_count
+            ]);
+        });
+    }
 
     public function showCandidates()
     {
@@ -93,7 +92,9 @@ class VotingController extends Controller
         $data = $request->validate([
             'candidate_id' => 'required|exists:candidates,id',
             'pack_id'      => 'required|exists:vote_packs,id',
-            
+            'phone_number' => 'required|string',
+            'operator'     => 'nullable|string',
+
         ]);
 
         $candidate = Candidate::findOrFail($data['candidate_id']);
@@ -107,7 +108,8 @@ class VotingController extends Controller
         $payment = Payment::create([
             'candidate_id' => $candidate->id,
             'pack_id'      => $pack->id,
-            'phone_number' => "0153258179",
+            'phone_number' => $data['phone_number'],
+            'operator'     => $data['operator'] ?? 'kkiapay',
             'amount'       => $pack->price_fcfa,
             'votes_count'  => $pack->votes_count,
             'status'       => 'pending',
@@ -138,7 +140,6 @@ class VotingController extends Controller
                 'amount'         => $payment->amount,
                 'message'        => 'Initialisation du paiement...',
             ]);
-
         } catch (\Exception $e) {
             Log::error('Kkiapay Init Error: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Erreur technique Kkiapay.'], 500);
@@ -157,11 +158,11 @@ class VotingController extends Controller
             $kkiapayTransaction = $this->kkiapay->verifyTransaction($transactionId);
 
             if ($kkiapayTransaction->status === 'SUCCESS') {
-                
+
                 // On retrouve notre paiement par la référence
                 $payment = Payment::where('transaction_ref', $kkiapayTransaction->transactionId)
-                                  ->where('status', 'pending')
-                                  ->first();
+                    ->where('status', 'pending')
+                    ->first();
 
                 if ($payment) {
                     DB::transaction(function () use ($payment) {
