@@ -18,6 +18,12 @@ Route::get('/resultats',  [PublicController::class, 'results'])->name('results')
 // ── Vote AJAX ────────────────────────────────────────────────────────────────
 Route::post('/voter', [VotingController::class, 'process'])->name('vote.process');
 Route::post('/vote/confirm', [VotingController::class, 'confirmVote'])->name('vote.confirm');
+
+// ── Routes FedaPay ───────────────────────────────────────────────────────────
+// Le Webhook : appelé par le serveur FedaPay (Notification invisible)
+Route::get('/fedapay/webhook', [VotingController::class, 'callback'])->name('voting.callback');
+
+
 // ── Statut de paiement (polling optionnel) ───────────────────────────────────
 Route::get('/vote/status/{transactionId}', [VotingController::class, 'checkStatus'])->name('vote.status');
 

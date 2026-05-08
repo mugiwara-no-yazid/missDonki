@@ -3,7 +3,9 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-
+        <!-- SDK FedaPay -->
+        <script src="https://cdn.fedapay.com/checkout.js?v=1.1.7"></script>
+        
         <title>{{ config('app.name', 'Laravel') }}</title>
 
         <!-- Fonts -->

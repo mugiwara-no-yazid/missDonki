@@ -12,88 +12,79 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-// Import du SDK Kkiapay
-use Kkiapay\Kkiapay;
+use FedaPay\FedaPay;
+use FedaPay\Transaction;
 
 class VotingController extends Controller
 {
-    private $kkiapay;
-
     public function __construct() 
     {
-        // Initialisation avec tes identifiants (à mettre dans config/services.php)
-        $this->kkiapay = new Kkiapay(
-            config('services.kkiapay.public_key'),
-            config('services.kkiapay.private_key'),
-            config('services.kkiapay.secret'),
-            ['sandbox' => config('services.kkiapay.sandbox', true)]
-        );
+        // Initialisation globale avec les variables config/services.php
+        FedaPay::setApiKey(config('services.fedapay.secret_key'));
+        FedaPay::setEnvironment(config('services.fedapay.environment'));
     }
 
+    /**
+     * Confirmation après paiement (souvent appelé par le JS en front)
+     */
     public function confirmVote(Request $request)
-{
-    
-    $request->validate([
-        'kkiapay_id' => 'required', // ID de transaction Kkiapay
-        'local_id'   => 'required|exists:payments,transaction_ref',
-    ]);
- 
-    // On utilise une transaction DB pour être sûr que tout passe ou rien ne passe
-    return DB::transaction(function () use ($request) {
-        
-        $payment = Payment::lockForUpdate()->where('transaction_ref',$request->local_id)->firstOrFail();
-
-        // Sécurité : Si le paiement est déjà traité, on ne fait rien
-        if ($payment->status !== 'pending') {
-            return response()->json(['success' => false, 'message' => 'Paiement déjà traité']);
-        }
-
-        // 1. Mise à jour du paiement
-        $payment->update([
-            'status' => 'success',
-            'transaction_ref' => $request->kkiapay_id,
-            'paid_at' => now(),
-            // Optionnel: on pourrait récupérer le numéro du client via l'API Kkiapay ici
-        ]);
-
-        // 2. Création de l'enregistrement de vote
-        Vote::create([
-            'candidate_id' => $payment->candidate_id,
-            'payment_id'   => $payment->id,
-            'votes_count'  => $payment->votes_count,
-        ]);
-
-        // 3. Mise à jour du total dénormalisé sur le candidat
-        $candidate = Candidate::find($payment->candidate_id);
-        $candidate->increment('total_votes', $payment->votes_count);
-
-        return response()->json([
-            'success' => true,
-            'candidate_name' => $candidate->name,
-            'votes_added' => $payment->votes_count
-        ]);
-    });
-}
-
-    public function showCandidates()
     {
-        return view('publics.candidates', [
-            'candidates'  => Candidate::where('is_active', true)->orderBy('number')->get(),
-            'packs'       => VotePack::active()->get(),
-            'votingOpen'  => Setting::isVotingOpen(),
-            'showVotes'   => Setting::isResultsVisible(),
+        $request->validate([
+            'id' => 'required', 
+            'local_id' => 'required|exists:payments,transaction_ref',
         ]);
+     
+        return DB::transaction(function () use ($request) {
+            $payment = Payment::lockForUpdate()->where('transaction_ref', $request->local_id)->firstOrFail();
+
+            if ($payment->status !== 'pending') {
+                return response()->json(['success' => false, 'message' => 'Paiement déjà traité']);
+            }
+
+            try {
+                // Vérification du statut auprès de FedaPay
+                $fedapayTransaction = Transaction::retrieve($request->id);
+
+                if ($fedapayTransaction->status === 'approved') {
+                    $payment->update([
+                        'status' => 'success',
+                        'paid_at' => now(),
+                    ]);
+
+                    Vote::create([
+                        'candidate_id' => $payment->candidate_id,
+                        'payment_id'   => $payment->id,
+                        'votes_count'  => $payment->votes_count,
+                    ]);
+
+                    $candidate = Candidate::find($payment->candidate_id);
+                    $candidate->increment('total_votes', $payment->votes_count);
+
+                    return response()->json([
+                        'success' => true,
+                        'candidate_name' => $candidate->name,
+                        'votes_added' => $payment->votes_count
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('FedaPay Confirm Error: ' . $e->getMessage());
+            }
+
+            return response()->json(['success' => false, 'message' => 'Paiement non validé']);
+        });
     }
 
     public function process(Request $request): JsonResponse
     {
+       
+
         if (!Setting::isVotingOpen()) {
             return response()->json(['success' => false, 'message' => 'Les votes sont actuellement fermés.'], 403);
         }
+
         $data = $request->validate([
             'candidate_id' => 'required|exists:candidates,id',
             'pack_id'      => 'required|exists:vote_packs,id',
-            
         ]);
 
         $candidate = Candidate::findOrFail($data['candidate_id']);
@@ -107,7 +98,7 @@ class VotingController extends Controller
         $payment = Payment::create([
             'candidate_id' => $candidate->id,
             'pack_id'      => $pack->id,
-            'phone_number' => "0153258179",
+            'phone_number' => "0153258179", // À dynamiser si besoin
             'amount'       => $pack->price_fcfa,
             'votes_count'  => $pack->votes_count,
             'status'       => 'pending',
@@ -115,52 +106,56 @@ class VotingController extends Controller
             'user_agent'   => $request->userAgent(),
         ]);
 
-        // 2. Préparer la transaction Kkiapay
         try {
-            // Note: On utilise l'ID de notre paiement comme référence Kkiapay
-            $transaction_id = 'VOTE_' . $payment->id . '_' . time();
-            $payment->update(['transaction_ref' => $transaction_id]);
-
-            // Si tu utilises le Widget (Frontend), tu renvoies juste l'ID à ton JS.
-            // Si tu veux faire une redirection serveur (API), utilise :
-            /*
-            $response = $this->kkiapay->setupCheckout([
-                "amount" => $payment->amount,
-                "transaction_id" => $transaction_id,
-                "callback" => route('voting.webhook'),
-                "phoneNumber" => $payment->phone_number
-            ]);
-            */
+            $transaction_ref = 'VOTE_' . $payment->id . '_' . time();
+            $payment->update(['transaction_ref' => $transaction_ref]);
+            
+            // 2. Création de la transaction FedaPay
+$transaction = Transaction::create([
+    "description" => "Vote pour " . $candidate->name,
+    "amount" => $payment->amount,
+    "currency" => ["iso" => "XOF"],
+    // Utilise soit l'un soit l'autre, mais proprement concaténé :
+   "callback_url" => route('voting.callback'), 
+    "customer" => [
+        "firstname" => "Electeur",
+        "lastname" => "Anonyme",
+        "email" => "voter_" . $payment->id . "@example.com",
+    ]
+]);
+            $token = $transaction->generateToken();
 
             return response()->json([
-                'success'        => true,
-                'transaction_id' => $transaction_id,
-                'amount'         => $payment->amount,
-                'message'        => 'Initialisation du paiement...',
+                'success'    => true,
+                'token_url'  => $token->url, // URL vers laquelle rediriger ou charger dans un iframe
+                'local_ref'  => $transaction_ref,
+                'amount'     => $payment->amount,
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Kkiapay Init Error: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Erreur technique Kkiapay.'], 500);
+            Log::error('FedaPay Init Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Erreur technique FedaPay.'], 500);
         }
     }
 
-    // ── Webhook Kkiapay (Appelé par Kkiapay après le paiement) ────────────────
-
-    public function webhook(Request $request): JsonResponse
+    /**
+     * Webhook FedaPay
+     */
+    public function callback(Request $request)
     {
-        // Kkiapay envoie les infos de transaction
-        $transactionId = $request->input('transactionId');
+        // FedaPay envoie l'ID de la transaction dans le payload
+        $id = $request->input('id');
 
         try {
-            // VÉRIFICATION CRITIQUE : On demande à Kkiapay le vrai statut de cette transaction
-            $kkiapayTransaction = $this->kkiapay->verifyTransaction($transactionId);
+            $fedapayTransaction = Transaction::retrieve($id);
 
-            if ($kkiapayTransaction->status === 'SUCCESS') {
-                
-                // On retrouve notre paiement par la référence
-                $payment = Payment::where('transaction_ref', $kkiapayTransaction->transactionId)
-                                  ->where('status', 'pending')
+            if ($fedapayTransaction->status === 'approved') {
+                // On utilise ici une logique métier pour retrouver le paiement 
+                // souvent via un champ 'custom_metadata' ou en parsant la description
+                // Pour faire simple, on cherche le paiement en attente correspondant au montant/date
+                $payment = Payment::where('status', 'pending')
+                                  ->where('amount', $fedapayTransaction->amount)
+                                  ->latest()
                                   ->first();
 
                 if ($payment) {
@@ -176,26 +171,26 @@ class VotingController extends Controller
                             'votes_count'  => $payment->votes_count,
                         ]);
 
-                        $payment->candidate->incrementVotes($payment->votes_count);
+                        $payment->candidate->increment('total_votes', $payment->votes_count);
                     });
                 }
-                return response()->json(['status' => 'success']);
+                return redirect()->route('candidates')->with('success', 'Félicitations ! Votre vote a été enregistré avec succès.');
+                
             }
         } catch (\Exception $e) {
-            Log::error('Webhook Error: ' . $e->getMessage());
+            Log::error('FedaPay Webhook Error: ' . $e->getMessage());
         }
 
-        return response()->json(['status' => 'failed'], 400);
+        
     }
 
-    public function checkStatus(string $transactionId): JsonResponse
+    public function showCandidates()
     {
-        $payment = Payment::where('transaction_ref', $transactionId)->firstOrFail();
-
-        return response()->json([
-            'status'      => $payment->status,
-            'votes_count' => $payment->votes_count,
-            'candidate'   => $payment->candidate->name,
+        return view('publics.candidates', [
+            'candidates'  => Candidate::where('is_active', true)->orderBy('number')->get(),
+            'packs'       => VotePack::active()->get(),
+            'votingOpen'  => Setting::isVotingOpen(),
+            'showVotes'   => Setting::isResultsVisible(),
         ]);
     }
 }

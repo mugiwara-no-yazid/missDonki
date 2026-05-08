@@ -250,7 +250,13 @@
         <span>Les votes sont actuellement fermés. Revenez bientôt pour soutenir votre candidate.</span>
     </div>
     @endif
-
+@if(session('success'))
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('success-overlay').classList.add('active');
+    });
+</script>
+@endif
     @if($candidates->isEmpty())
     <div style="text-align:center;padding:80px 0;color:rgba(253,250,244,.3);">
         <div style="font-size:3rem;margin-bottom:16px;">♛</div>
@@ -349,7 +355,7 @@
         </button>
 
         <p class="modal-note">
-            Paiement sécurisé via <strong>Kkiapay</strong><br>
+            Paiement sécurisé via <strong>FedaPay</strong><br>
             Le vote sera comptabilisé une fois le paiement confirmé.
         </p>
     </div>
@@ -425,7 +431,7 @@ function updateRecap() {
     document.getElementById('pay-amount').innerText = formattedPrice;
 }
 
-async function processPayment() {
+    async function processPayment() {
     if (!selectedCandidateId || !selectedPackId) return;
 
     const btn = document.getElementById('btn-pay');
@@ -443,64 +449,34 @@ async function processPayment() {
         });
         
         const data = await res.json();
+
         if (data.success) {
-            lastPaymentId = data.transaction_id;
-            openKkiapayWidget({
-                amount: data.amount,
-                position: "center",
-                theme: "#C9A84C",
-                key: "{{ config('services.kkiapay.public_key') }}",
-                sandbox: true,
-            });
-
-            closeModal();
-
-            addKkiapayListener('success', async (response) => {
-                
-    closeModal(); // Ferme le modal de sélection de pack
-    
-    //try {
-        const confirmReq = await fetch('{{ route('vote.confirm') }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': CSRF
-            },
-            body: JSON.stringify({
-                kkiapay_id: response.transactionId, // L'ID venant de Kkiapay
-                local_id: lastPaymentId             // L'ID de ta table 'payments'
-            })
-        });
-
-        const result = await confirmReq.json();
-        console.log(result)
-        if (result.success) {
-            // Affichage du message de succès avec les données fraîches du serveur
-            showSuccess(result.candidate_name, result.votes_added);
+            // FedaPay : On utilise l'URL générée par le contrôleur (token_url)
+            // On peut soit rediriger directement, soit ouvrir le checkout
             
-            // Rafraîchir pour voir le nouveau score sur la page
-            setTimeout(() => window.location.reload(), 4000);
-        } else {
-            alert("Erreur: " + result.message);
-        }
-    /*} catch (error) {
-        console.error("Erreur confirmation:", error);
-        alert("Le paiement a réussi mais la validation serveur a échoué. Contactez le support.");
-    }*/
-});
+            lastPaymentId = data.local_ref;
+
+            // Option 1 : Redirection directe (Plus simple et recommandé pour le mobile)
+            window.location.href = data.token_url;
+
+            /* 
+               Note : Si tu veux rester sur la page, FedaPay nécessite une configuration 
+               plus complexe du côté du SDK JS. La redirection vers 'token_url' 
+               est la méthode la plus fiable avec le contrôleur qu'on a fait.
+            */
 
         } else {
             alert('❌ ' + (data.message || 'Erreur lors de l\'initialisation.'));
+            btn.disabled = false;
+            btn.classList.remove('loading');
         }
-   } catch (e) {
+    } catch (e) {
         console.error(e);
         alert('❌ Erreur réseau. Veuillez réessayer.');
-    } finally {
         btn.disabled = false;
         btn.classList.remove('loading');
     }
 }
-
 function showSuccess(name, votes) {
     document.getElementById('success-text').innerHTML =
         `Merci pour votre soutien à <strong style="color:var(--or)">${name}</strong> !<br>
