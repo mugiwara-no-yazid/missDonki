@@ -365,7 +365,7 @@
                 @if($votingOpen)
                 <button class="btn-vote" onclick="event.stopPropagation(); openVote({{ $c->id }}, '{{ addslashes($c->name) }}', '{{ $c->photo_url }}')" 
                 style="display: flex; justify-content:center">
-                   <span><img src="{{ asset('storage/icons/queen.png') }}" alt="queen"  style="max-width: 40px;"></span> <span>Voter pour {{ explode(' ', $c->name)[0] }}</span>
+                   <span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span> <span>Voter pour {{ explode(' ', $c->name)[0] }}</span>
                 </button>
                 @else
                 <div class="btn-vote btn-vote-disabled">Vote fermé</div>
@@ -383,7 +383,7 @@
         <button class="modal-close" onclick="closeModal()">×</button>
 
         <div class="modal-header">
-<span><img src="{{ asset('storage/icons/queen.png') }}" alt="Calendrier"  style="max-width: 50px;"></span>
+<span><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--or)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/></svg></span>
             <h2 class="modal-title">Voter pour</h2>
             <p class="modal-candidate" id="modal-candidate-name">—</p>
         </div>

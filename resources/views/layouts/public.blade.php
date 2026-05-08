@@ -245,7 +245,7 @@
 
 <footer>
     <div class="footer-transparency">
-        <span class="icon"><img src="{{ asset('storage/icons/atm-card.png') }}" alt="Calendrier"  style="max-width: 30px;"></span>
+        <span class="icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--or)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>
         <p>
             <strong>Transparence :</strong>
             {{ \App\Models\Setting::get('transparency_message', "Chaque vote coûte 100 FCFA. Les fonds collectés servent à l'organisation du Gala Tabaski et aux récompenses des candidates.") }}

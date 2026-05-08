@@ -283,21 +283,21 @@
 <div class="info-band" style="background-color: #333333b0;">
     <div class="info-band-inner" >
         <div class="info-item">
-           <img src="{{ asset('storage/icons/calendar.png') }}" alt="Calendrier"  style="max-width: 30px;">
+           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--or)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <div class="info-text">
                 <div class="lbl">Date</div>
                 <div class="val">{{ \Carbon\Carbon::parse($eventDate)->locale('fr')->isoFormat('D MMMM YYYY') }}</div>
             </div>
         </div>
         <div class="info-item">
-            <span class="info-icon"> <img src="{{ asset('storage/icons/location.png') }}" alt="Calendrier"  style="max-width: 30px;"></span>
+            <span class="info-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--or)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
             <div class="info-text">
                 <div class="lbl">Lieu</div>
                 <div class="val">{{ $eventLocation }}</div>
             </div>
         </div>
         <div class="info-item">
-            <span class="info-icon"><img src="{{ asset('storage/icons/queen.png') }}" alt="Calendrier"  style="max-width: 30px;"></span>
+            <span class="info-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--or)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/></svg></span>
             <div class="info-text">
                 <div class="lbl">Candidates</div>
                 <div class="val">{{ $candidatesCount }} participantes</div>
@@ -341,17 +341,17 @@
 
     <div class="about-grid">
         <div class="about-card">
-            <span class="about-icon"><img src="{{ asset('storage/icons/queen.png') }}" alt="Calendrier"  style="max-width: 50px;"></span>
+            <span class="about-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--or)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/></svg></span>
             <h3>Miss Populaire</h3>
             <p>Le titre est décerné à la candidate ayant reçu le plus de votes du public. Chaque voix compte !</p>
         </div>
         <div class="about-card">
-            <span class="about-icon"><img src="{{ asset('storage/icons/collaboration.png') }}" alt="Calendrier"  style="max-width: 50px;"></span>
+            <span class="about-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--or)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
             <h3>Organisé par</h3>
             <p>L'Association des Guinéens au Bénin, fière de célébrer la Tabaski avec culture, style et solidarité.</p>
         </div>
         <div class="about-card">
-            <span class="about-icon"><img src="{{ asset('storage/icons/festivity.png') }}" alt="Calendrier"  style="max-width: 50px;"></span>
+            <span class="about-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--or)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/><line x1="2" y1="22" x2="22" y2="22"/><path d="M6 18l2-4M16 18l2-4"/></svg></span>
             <h3>Grand Gala</h3>
             <p>Une soirée inoubliable mêlant beauté, tradition et modernité. La 3ème édition promet d'être grandiose.</p>
         </div>
@@ -376,7 +376,7 @@
     @if($votingOpen)
     <div style="text-align:center;">
         <a href="{{ route('candidates') }}" class="btn-hero" style="animation:none;opacity:1;display:inline-flex;">
-            <span><img src="{{ asset('storage/icons/queen.png') }}" alt="Calendrier"  style="max-width: 50px;"></span><span>Voir les Candidates</span>
+            <span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/></svg></span><span>Voir les Candidates</span>
         </a>
     </div>
     @endif
