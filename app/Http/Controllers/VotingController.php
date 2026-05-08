@@ -150,9 +150,7 @@ $transaction = Transaction::create([
             $fedapayTransaction = Transaction::retrieve($id);
 
             if ($fedapayTransaction->status === 'approved') {
-                // On utilise ici une logique métier pour retrouver le paiement 
-                // souvent via un champ 'custom_metadata' ou en parsant la description
-                // Pour faire simple, on cherche le paiement en attente correspondant au montant/date
+               
                 $payment = Payment::where('status', 'pending')
                                   ->where('amount', $fedapayTransaction->amount)
                                   ->latest()
