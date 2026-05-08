@@ -34,30 +34,9 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-    'feexpay' => [
-    // Votre token API FeeXPay (obtenu sur https://feexpay.me -> Mon compte -> API)
-    'token'          => env('FEEXPAY_TOKEN'),
-
-    // Votre Shop ID FeeXPay
-    'shop_id'        => env('FEEXPAY_SHOP_ID'),
-
-    // Secret pour valider les webhooks (optionnel mais recommandé)
-    'webhook_secret' => env('FEEXPAY_WEBHOOK_SECRET'),
-
-    // URL de base (ne pas changer sauf si FeeXPay change son domaine)
-    'base_url'       => env('FEEXPAY_BASE_URL', 'https://api.feexpay.me'),
-],
-
-'kkiapay' => [
-    'public_key'  => env('KKIAPAY_PUBLIC_KEY'),
-    'private_key' => env('KKIAPAY_PRIVATE_KEY'),
-    'secret'      => env('KKIAPAY_SECRET'),
-    'sandbox'     => env('KKIAPAY_SANDBOX', true),
-],
-
-'fedapay' => [
-    'public_key' => env('FEDAPAY_PUBLIC_KEY'),
-    'secret_key' => env('FEDAPAY_SECRET_KEY'),
-    'environment' => env('FEDAPAY_ENVIRONMENT', 'sandbox'), 
-],
+    'fedapay' => [
+        'public_key'  => env('FEDAPAY_PUBLIC_KEY'),
+        'secret_key'  => env('FEDAPAY_SECRET_KEY'),
+        'environment' => env('FEDAPAY_ENVIRONMENT', 'sandbox'),
+    ],
 ];

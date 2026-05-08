@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Vote Miss Populaire') — Gala Tabaski Act 3</title>
-    <!-- SDK FedaPay -->
-<script src="https://cdn.fedapay.com/checkout.js?v=1.1.7"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -133,15 +131,6 @@
         }
         .footer-transparency strong { color: var(--or); }
 
-        /* ── WHATSAPP FLOAT ── */
-        .whatsapp-float { position: fixed; bottom: 30px; right: 24px; z-index: 999; }
-        .whatsapp-btn {
-            width: 54px; height: 54px; background: #25d366;
-            border-radius: 50%; display: flex; align-items: center;
-            justify-content: center; box-shadow: 0 4px 20px rgba(37,211,102,.4);
-            cursor: pointer; transition: all .3s; text-decoration: none; font-size: 1.5rem;
-        }
-        .whatsapp-btn:hover { transform: scale(1.1); box-shadow: 0 6px 30px rgba(37,211,102,.6); }
 
         /* ── CONFETTI ── */
         .confetti { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2999; }
@@ -154,10 +143,77 @@
             100% { transform: translateY(100vh)  rotate(720deg); opacity: 0; }
         }
 
+        /* ── TOAST NOTIFICATIONS ── */
+        .toast-container {
+            position: fixed; top: 90px; right: 24px; z-index: 5000;
+            display: flex; flex-direction: column; gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            pointer-events: auto;
+            display: flex; align-items: center; gap: 12px;
+            min-width: 300px; max-width: 420px;
+            padding: 16px 20px;
+            border-radius: 10px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: .82rem; font-weight: 500;
+            color: var(--blanc);
+            backdrop-filter: blur(16px);
+            box-shadow: 0 8px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05);
+            animation: toastIn .4s cubic-bezier(.21,1.02,.73,1) forwards;
+            cursor: pointer;
+            transition: opacity .3s, transform .3s;
+        }
+        .toast:hover { transform: translateX(-4px); }
+        .toast.toast-out {
+            animation: toastOut .35s cubic-bezier(.55,.085,.68,.53) forwards;
+        }
+        .toast-success {
+            background: linear-gradient(135deg, rgba(0,180,80,.2), rgba(0,100,40,.35));
+            border: 1px solid rgba(0,220,100,.3);
+        }
+        .toast-error {
+            background: linear-gradient(135deg, rgba(192,0,26,.25), rgba(140,0,18,.4));
+            border: 1px solid rgba(229,0,31,.35);
+        }
+        .toast-info {
+            background: linear-gradient(135deg, rgba(201,168,76,.15), rgba(160,120,42,.3));
+            border: 1px solid rgba(201,168,76,.35);
+        }
+        .toast-icon { font-size: 1.3rem; flex-shrink: 0; }
+        .toast-body { flex: 1; line-height: 1.5; }
+        .toast-close {
+            background: none; border: none; color: rgba(253,250,244,.4);
+            font-size: 1.1rem; cursor: pointer; padding: 0 0 0 8px;
+            transition: color .2s; font-family: 'Montserrat', sans-serif;
+        }
+        .toast-close:hover { color: var(--blanc); }
+        .toast-progress {
+            position: absolute; bottom: 0; left: 0; height: 3px;
+            border-radius: 0 0 10px 10px;
+            animation: toastProgress 5s linear forwards;
+        }
+        .toast-success .toast-progress { background: rgba(0,220,100,.5); }
+        .toast-error .toast-progress   { background: rgba(229,0,31,.5); }
+        .toast-info .toast-progress     { background: rgba(201,168,76,.5); }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(80px) scale(.95); }
+            to   { opacity: 1; transform: translateX(0) scale(1); }
+        }
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateX(0); }
+            to   { opacity: 0; transform: translateX(80px); }
+        }
+        @keyframes toastProgress {
+            from { width: 100%; } to { width: 0%; }
+        }
+
         @media(max-width: 768px) {
             nav { padding: 14px 20px; }
             .nav-links { gap: 16px; }
             .nav-links li:not(:last-child):not(:nth-last-child(2)) { display: none; }
+            .toast-container { right: 12px; left: 12px; }
+            .toast { min-width: auto; max-width: 100%; }
         }
         @media(max-width: 480px) {
             .nav-links { gap: 10px; }
@@ -174,14 +230,14 @@
     <a href="{{ route('home') }}" class="nav-logo">Gala Tabaski ✦ Act 3</a>
     <ul class="nav-links">
         <li><a href="{{ route('home') }}#about" class="{{ request()->routeIs('home') ? 'active' : '' }}">Concours</a></li>
-         @if(!\App\Models\Setting::isResultsVisible())
-            <li><a href="{{ route('candidates') }}" class="{{ request()->routeIs('candidates') ? 'active' : '' }}">Candidates</a></li>
-         @endif
+        <li><a href="{{ route('candidates') }}" class="{{ request()->routeIs('candidates') ? 'active' : '' }}">Candidates</a></li>
         @if(\App\Models\Setting::isResultsVisible())
             <li><a href="{{ route('results') }}" class="{{ request()->routeIs('results') ? 'active' : '' }}">Résultats</a></li>
         @endif
     </ul>
 </nav>
+
+<div class="toast-container" id="toast-container"></div>
 
 <main>
     @yield('content')
@@ -206,6 +262,7 @@
     </div>
     <p class="footer-copy">© {{ date('Y') }} Association des Guinéens au Bénin. Tous droits réservés.</p>
 </footer>
+
 
 
 <script>
@@ -234,11 +291,41 @@ function spawnConfetti() {
     setTimeout(() => container.innerHTML = '', 4000);
 }
 
-// WhatsApp
-function updateWhatsApp(topName, topVotes) {
-    const text = `🏆 Gala Tabaski Act 3 – Vote Miss Populaire\n\n👑 En tête : ${topName} avec ${topVotes} votes !\n\nVotez ici : ${window.location.origin}/candidates\n\n#GalaTabaski #MissPopulaire`;
-    document.getElementById('whatsapp-share').href = `https://wa.me/?text=${encodeURIComponent(text)}`;
+// ── TOAST SYSTEM ──
+function showToast(message, type = 'info', duration = 5000) {
+    const container = document.getElementById('toast-container');
+    const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type] || icons.info}</span>
+        <span class="toast-body">${message}</span>
+        <button class="toast-close" onclick="dismissToast(this.parentElement)">✕</button>
+        <div class="toast-progress"></div>
+    `;
+    toast.addEventListener('click', () => dismissToast(toast));
+    container.appendChild(toast);
+    setTimeout(() => dismissToast(toast), duration);
 }
+
+function dismissToast(toast) {
+    if (!toast || toast.classList.contains('toast-out')) return;
+    toast.classList.add('toast-out');
+    setTimeout(() => toast.remove(), 350);
+}
+
+// Auto-show Laravel flash messages
+document.addEventListener('DOMContentLoaded', function() {
+    @if(session('success'))
+        showToast(@json(session('success')), 'success');
+    @endif
+    @if(session('error'))
+        showToast(@json(session('error')), 'error');
+    @endif
+    @if(session('info'))
+        showToast(@json(session('info')), 'info');
+    @endif
+});
 </script>
 
 @stack('scripts')

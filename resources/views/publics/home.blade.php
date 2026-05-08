@@ -404,7 +404,5 @@ function updateCountdown() {
 }
 updateCountdown();
 setInterval(updateCountdown, 1000);
-
-updateWhatsApp('—', 0);
 </script>
 @endpush

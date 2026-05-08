@@ -45,6 +45,18 @@
 .rank-3 .rank-bar-fill { background: linear-gradient(90deg, #8b6324, #cd7f32); }
 .rank-4plus .rank-bar-fill { background: rgba(201,168,76,.3); }
 .rank-votes { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--or); font-weight: 700; min-width: 70px; text-align: right; }
+.rank-votes .vote-label { display: block; font-size: .55rem; color: rgba(253,250,244,.4); font-family: 'Montserrat', sans-serif; letter-spacing: 1px; text-transform: uppercase; font-weight: 500; }
+
+.btn-vote-mini {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: linear-gradient(135deg, var(--rouge), var(--rouge-fonce));
+    color: var(--blanc); padding: 8px 18px; border-radius: 4px;
+    font-size: .65rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    text-decoration: none; border: 1px solid rgba(201,168,76,.25);
+    cursor: pointer; transition: all .25s; flex-shrink: 0;
+    box-shadow: 0 4px 15px rgba(192,0,26,.3);
+}
+.btn-vote-mini:hover { transform: translateY(-2px); box-shadow: 0 6px 25px rgba(192,0,26,.5); }
 
 /* Résultats masqués */
 .hidden-box {
@@ -68,10 +80,11 @@
 .btn-cta:hover { box-shadow: 0 12px 40px rgba(192,0,26,.5); transform: translateY(-2px); }
 
 @media(max-width:600px) {
-    .rank-item { padding: 14px; gap: 12px; }
+    .rank-item { padding: 14px; gap: 12px; flex-wrap: wrap; }
     .rank-avatar, .rank-avatar-placeholder { width: 46px; height: 46px; }
     .rank-number { font-size: 1.6rem; min-width: 36px; }
     .rank-bar-wrap { display: none; }
+    .btn-vote-mini { width: 100%; justify-content: center; margin-top: 8px; }
 }
 </style>
 @endpush
@@ -108,9 +121,8 @@
 
     @else
 
-    <div style="text-align:center;margin-bottom:40px;font-size:.8rem;color:rgba(253,250,244,.4);">
-        {{ number_format($totalVotes) }} votes comptabilisés au total
-    </div>
+
+
 
     <div class="results-container">
         @foreach($ranked as $c)
@@ -137,10 +149,14 @@
                     </div>
                     <div class="rank-votes">
                         {{ number_format($c->total_votes) }}
-                        <span style="font-size:.65rem;color:rgba(253,250,244,.4);font-family:'Montserrat',sans-serif;"> — {{ $pct }}%</span>
+                        <span class="vote-label">votes — {{ $pct }}%</span>
                     </div>
                 </div>
             </div>
+
+            @if($votingOpen)
+            <a href="{{ route('candidates') }}#candidate-{{ $c->id }}" class="btn-vote-mini">✨ Voter</a>
+            @endif
         </div>
         @endforeach
     </div>
@@ -156,13 +172,5 @@
 
 @endsection
 
-@push('scripts')
-<script>
-@if($showResults && $ranked->count() > 0)
-updateWhatsApp(
-    '{{ $ranked->first()->name }}',
-    {{ $ranked->first()->total_votes }}
-);
-@endif
-</script>
-@endpush
+
+

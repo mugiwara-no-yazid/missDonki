@@ -19,18 +19,12 @@ Route::get('/resultats',  [PublicController::class, 'results'])->name('results')
 Route::post('/voter', [VotingController::class, 'process'])->name('vote.process');
 Route::post('/vote/confirm', [VotingController::class, 'confirmVote'])->name('vote.confirm');
 
-// ── Routes FedaPay ───────────────────────────────────────────────────────────
-// Le Webhook : appelé par le serveur FedaPay (Notification invisible)
-Route::get('/fedapay/webhook', [VotingController::class, 'callback'])->name('voting.callback');
+// ── FedaPay : retour après paiement (redirect GET depuis FedaPay checkout) ──
+Route::get('/fedapay/callback', [VotingController::class, 'callback'])->name('voting.callback');
 
-
-// ── Statut de paiement (polling optionnel) ───────────────────────────────────
-Route::get('/vote/status/{transactionId}', [VotingController::class, 'checkStatus'])->name('vote.status');
-
-
-Route::get('/login',         [AuthController::class, 'showLogin'])->name('login');
 
 Route::prefix('admin')->name('admin.')->group(function () {
+    Route::get('/login',         [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login',        [AuthController::class, 'login'])->name('login.post');
     Route::post('/logout',       [AuthController::class, 'logout'])->name('logout');
 });

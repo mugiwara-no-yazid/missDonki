@@ -65,13 +65,69 @@
     font-family: 'Playfair Display', serif;
     font-size: 1.4rem; font-weight: 700; color: var(--blanc); margin-bottom: 4px;
 }
-.candidate-tag { font-size: .65rem; letter-spacing: 3px; color: var(--or); text-transform: uppercase; margin-bottom: 20px; }
-.votes-bar-wrap { margin-bottom: 20px; }
-.votes-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.votes-label span { font-size: .65rem; letter-spacing: 2px; color: rgba(253,250,244,.5); text-transform: uppercase; }
-.votes-count { font-family: 'Playfair Display', serif; font-size: 1.2rem; color: var(--or) !important; font-weight: 700; letter-spacing: 0 !important; text-transform: none !important; }
-.votes-bar { width: 100%; height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; overflow: hidden; }
-.votes-bar-fill { height: 100%; background: linear-gradient(90deg, var(--rouge), var(--or)); border-radius: 2px; transition: width 1.5s cubic-bezier(.25,.8,.25,1); }
+.candidate-tag { font-size: .65rem; letter-spacing: 3px; color: var(--or); text-transform: uppercase; margin-bottom: 12px; }
+.candidate-bio {
+    font-size: .78rem; color: rgba(253,250,244,.55); line-height: 1.6;
+    margin-bottom: 6px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+    transition: all .3s ease;
+}
+.candidate-bio.expanded {
+    -webkit-line-clamp: unset; display: block;
+}
+.bio-toggle {
+    background: none; border: none; cursor: pointer;
+    font-size: .68rem; color: var(--or); font-family: 'Montserrat', sans-serif;
+    font-weight: 600; letter-spacing: 1px; padding: 0; margin-bottom: 16px;
+    transition: color .2s; display: inline-block;
+}
+.bio-toggle:hover { color: var(--or-clair); }
+
+/* ── SHARE BUTTON ── */
+.share-wrap {
+    position: absolute; top: 12px; right: 12px; z-index: 10;
+}
+.btn-share {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(0,0,0,.5); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.15);
+    color: var(--blanc); font-size: .95rem;
+    cursor: pointer; transition: all .25s;
+    display: flex; align-items: center; justify-content: center;
+}
+.btn-share:hover { background: rgba(255,255,255,.15); transform: scale(1.1); }
+.share-menu {
+    display: none; position: absolute; top: 44px; right: 0;
+    background: rgba(15,15,15,.95); backdrop-filter: blur(16px);
+    border: 1px solid rgba(201,168,76,.2); border-radius: 10px;
+    padding: 6px 0; min-width: 180px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.6);
+    animation: shareIn .2s ease forwards;
+}
+.share-menu.active { display: block; }
+.share-menu a, .share-menu button {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 10px 16px; border: none;
+    background: none; color: var(--blanc); font-size: .78rem;
+    font-family: 'Montserrat', sans-serif; cursor: pointer;
+    text-decoration: none; transition: background .15s;
+}
+.share-menu a:hover, .share-menu button:hover { background: rgba(201,168,76,.1); }
+.share-menu .share-icon { font-size: 1.1rem; width: 22px; text-align: center; }
+@keyframes shareIn { from { opacity:0; transform: translateY(-6px); } to { opacity:1; transform: translateY(0); } }
+.candidate-votes-count {
+    display: flex; align-items: baseline; gap: 6px;
+    margin-bottom: 18px;
+}
+.candidate-votes-count .vote-number {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem; font-weight: 700; color: var(--or);
+}
+.candidate-votes-count .vote-text {
+    font-size: .7rem; color: rgba(253,250,244,.4);
+    letter-spacing: 2px; text-transform: uppercase;
+}
 .btn-vote {
     width: 100%;
     background: linear-gradient(135deg, var(--rouge) 0%, var(--rouge-fonce) 100%);
@@ -253,7 +309,7 @@
 @if(session('success'))
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        document.getElementById('success-overlay').classList.add('active');
+        spawnConfetti();
     });
 </script>
 @endif
@@ -267,9 +323,23 @@
         @php $maxVotes = $candidates->max('total_votes') ?: 1; @endphp
         @foreach($candidates as $c)
         @php $pct = round(($c->total_votes / $maxVotes) * 100); $isTop = $c->total_votes == $maxVotes && $c->total_votes > 0; @endphp
-        <div class="candidate-card {{ $isTop ? 'top-candidate' : '' }}"
+        <div class="candidate-card {{ $isTop ? 'top-candidate' : '' }}" id="candidate-{{ $c->id }}"
              onclick="{{ $votingOpen ? "openVote({$c->id}, '{$c->name}', '{$c->photo_url}')" : '' }}">
             @if($isTop)<div class="top-badge">⭐ Top Candidate</div>@endif
+            <div class="share-wrap">
+                <button class="btn-share" onclick="event.stopPropagation(); toggleShare({{ $c->id }})" title="Partager"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
+                <div class="share-menu" id="share-menu-{{ $c->id }}">
+                    <a href="#" onclick="event.preventDefault(); shareWhatsApp({{ $c->id }}, '{{ addslashes($c->name) }}')">
+                        <span class="share-icon">💬</span> WhatsApp
+                    </a>
+                    <a href="#" onclick="event.preventDefault(); shareFacebook({{ $c->id }})">
+                        <span class="share-icon">📘</span> Facebook
+                    </a>
+                    <button onclick="copyLink({{ $c->id }}, '{{ addslashes($c->name) }}')">
+                        <span class="share-icon">🔗</span> Copier le lien
+                    </button>
+                </div>
+            </div>
             <div class="candidate-number">{{ $c->number }}</div>
 
             @if($c->photo_path)
@@ -284,17 +354,14 @@
             <div class="candidate-info">
                 <div class="candidate-name">{{ $c->name }}</div>
                 <div class="candidate-tag">Candidate N°{{ $c->number }}</div>
-                @if($showVotes)
-                <div class="votes-bar-wrap">
-                    <div class="votes-label">
-                        <span>Votes</span>
-                        <span class="votes-count">{{ number_format($c->total_votes) }}</span>
-                    </div>
-                    <div class="votes-bar">
-                        <div class="votes-bar-fill" style="width:{{ $pct }}%"></div>
-                    </div>
-                </div>
+                @if($c->bio)
+                <p class="candidate-bio" id="bio-{{ $c->id }}">{{ $c->bio }}</p>
+                <button class="bio-toggle" onclick="event.stopPropagation(); toggleBio({{ $c->id }}, this)">Lire plus ▾</button>
                 @endif
+                <div class="candidate-votes-count">
+                    <span class="vote-number">{{ number_format($c->total_votes) }}</span>
+                    <span class="vote-text">vote{{ $c->total_votes > 1 ? 's' : '' }}</span>
+                </div>
                 @if($votingOpen)
                 <button class="btn-vote" onclick="event.stopPropagation(); openVote({{ $c->id }}, '{{ addslashes($c->name) }}', '{{ $c->photo_url }}')" 
                 style="display: flex; justify-content:center">
@@ -337,7 +404,8 @@
             @endforeach
         </div>
 
-        {{-- Section téléphone retirée ici car Kkiapay affiche son propre champ dans le widget --}}
+
+
 
         <div class="order-recap" id="order-recap">
             <div class="recap-row"><span>Candidate</span><span id="recap-candidate">—</span></div>
@@ -374,8 +442,6 @@
 @endsection
 
 @push('scripts')
-<!-- SDK Kkiapay -->
-<script src="https://cdn.kkiapay.me/k.js"></script>
 
 <script>
 let lastPaymentId = null;
@@ -388,6 +454,71 @@ let selectedPackId        = null;
 let selectedPackPrice     = 0;
 let selectedPackVotes     = 0;
 let selectedPackName      = '';
+
+// --- AUTO-SCROLL si lien partagé (#candidate-X) ---
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.location.hash) {
+        const target = document.querySelector(window.location.hash);
+        if (target && target.classList.contains('candidate-card')) {
+            setTimeout(() => {
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                target.style.boxShadow = '0 0 30px rgba(201,168,76,.5)';
+                target.style.borderColor = 'var(--or)';
+                setTimeout(() => { target.style.boxShadow = ''; target.style.borderColor = ''; }, 2500);
+            }, 300);
+        }
+    }
+});
+
+// --- BIO TOGGLE ---
+function toggleBio(id, btn) {
+    const bio = document.getElementById('bio-' + id);
+    bio.classList.toggle('expanded');
+    btn.textContent = bio.classList.contains('expanded') ? 'Réduire ▴' : 'Lire plus ▾';
+}
+
+// --- SHARE ---
+function toggleShare(id) {
+    // Fermer tous les autres menus
+    document.querySelectorAll('.share-menu.active').forEach(m => {
+        if (m.id !== 'share-menu-' + id) m.classList.remove('active');
+    });
+    document.getElementById('share-menu-' + id).classList.toggle('active');
+}
+
+function getCandidateUrl(id) {
+    return window.location.origin + '/candidates#candidate-' + id;
+}
+
+function shareWhatsApp(id, name) {
+    const url = getCandidateUrl(id);
+    const text = `👑 Votez pour ${name} au Gala Tabaski Act 3 !\n\nChaque vote compte pour la couronne de Miss Populaire ✨\n\n${url}`;
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+    toggleShare(id);
+}
+
+function shareFacebook(id) {
+    const url = getCandidateUrl(id);
+    window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url), '_blank', 'width=600,height=400');
+    toggleShare(id);
+}
+
+function copyLink(id, name) {
+    const url = getCandidateUrl(id);
+    navigator.clipboard.writeText(url).then(() => {
+        showToast('Lien de ' + name + ' copié !', 'success', 3000);
+    }).catch(() => {
+        showToast('Impossible de copier le lien', 'error');
+    });
+    toggleShare(id);
+}
+
+// Fermer les menus au clic extérieur
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.share-wrap')) {
+        document.querySelectorAll('.share-menu.active').forEach(m => m.classList.remove('active'));
+    }
+});
 
 // --- FONCTIONS DE GESTION DU MODAL ---
 
@@ -431,7 +562,7 @@ function updateRecap() {
     document.getElementById('pay-amount').innerText = formattedPrice;
 }
 
-    async function processPayment() {
+async function processPayment() {
     if (!selectedCandidateId || !selectedPackId) return;
 
     const btn = document.getElementById('btn-pay');
@@ -451,41 +582,33 @@ function updateRecap() {
         const data = await res.json();
 
         if (data.success) {
-            // FedaPay : On utilise l'URL générée par le contrôleur (token_url)
-            // On peut soit rediriger directement, soit ouvrir le checkout
-            
             lastPaymentId = data.local_ref;
-
-            // Option 1 : Redirection directe (Plus simple et recommandé pour le mobile)
+            // Redirection vers le checkout FedaPay
             window.location.href = data.token_url;
-
-            /* 
-               Note : Si tu veux rester sur la page, FedaPay nécessite une configuration 
-               plus complexe du côté du SDK JS. La redirection vers 'token_url' 
-               est la méthode la plus fiable avec le contrôleur qu'on a fait.
-            */
-
         } else {
-            alert('❌ ' + (data.message || 'Erreur lors de l\'initialisation.'));
+            showToast(data.message || 'Erreur lors de l\'initialisation.', 'error');
             btn.disabled = false;
             btn.classList.remove('loading');
         }
     } catch (e) {
         console.error(e);
-        alert('❌ Erreur réseau. Veuillez réessayer.');
+        showToast('Erreur réseau. Veuillez réessayer.', 'error');
         btn.disabled = false;
         btn.classList.remove('loading');
     }
 }
+
 function showSuccess(name, votes) {
     document.getElementById('success-text').innerHTML =
         `Merci pour votre soutien à <strong style="color:var(--or)">${name}</strong> !<br>
-         <strong>${votes} vote${votes > 1 ? 's' : ''}</strong> seront ajoutés après confirmation du paiement.`;
+         <strong>${votes} vote${votes > 1 ? 's' : ''}</strong> ont été ajoutés.`;
     document.getElementById('success-overlay').classList.add('active');
+    spawnConfetti();
 }
 
 function closeSuccess() {
     document.getElementById('success-overlay').classList.remove('active');
+    location.reload();
 }
 </script>
 @endpush

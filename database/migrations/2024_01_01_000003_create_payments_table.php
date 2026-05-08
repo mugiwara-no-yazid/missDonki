@@ -21,8 +21,8 @@ return new class extends Migration
                   ->restrictOnDelete();
 
             // Informations du votant
-            $table->string('phone_number', 20);             // numéro Mobile Money
-            $table->enum('operator', ['mtn', 'moov']);      // opérateur
+            $table->string('phone_number', 20)->nullable();  // numéro Mobile Money (optionnel avec FedaPay)
+            $table->string('operator', 20)->nullable();       // opérateur (rempli si connu)
 
             // Données de la transaction
             $table->string('transaction_ref')->nullable()->unique(); // référence retournée par la passerelle
